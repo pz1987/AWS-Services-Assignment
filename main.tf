@@ -149,7 +149,7 @@ resource "aws_lb_target_group" "app_tg" {
 # Create an Auto Scaling group
 resource "aws_launch_configuration" "my_lc" {
   name_prefix     = "my_lc_"
-  image_id        = "ami-123456"
+  image_id        = "ami-00c39f71452c08778"
   instance_type   = "t2.micro"
   security_groups = [aws_security_group.ec2_sg.id]
 
@@ -165,21 +165,20 @@ resource "aws_launch_configuration" "my_lc" {
 }
 
 resource "aws_autoscaling_group" "my_asg" {
-  name = "My Auto Scaling Group"
-  vpc_zone_identifier = [
-    aws_subnet.web_subnet.id,
-    aws_subnet.app_subnet.id
-  ]
+  #name = "My-Auto-Scaling-Group"
+  name_prefix = "My-Auto-Scaling-Group"
+  vpc_zone_identifier = [aws_subnet.web_subnet.id,aws_subnet.app_subnet.id]
+  health_check_type = "ELB"
+
+  #Auto-scaling policies
   desired_capacity = 2
   min_size         = 2
   max_size         = 10
 
   launch_configuration = aws_launch_configuration.my_lc.name
+  #launch_configuration = aws_launch_configuration.my_asg.name
 
-  target_group_arns = [
-    aws_lb_target_group.web_tg.arn,
-    aws_lb_target_group.app_tg.arn
-  ]
+  target_group_arns = [aws_lb_target_group.web_tg.arn,aws_lb_target_group.app_tg.arn]
 
   #tags {
   #  Name = "MyAutoScalingGroup"
@@ -240,17 +239,20 @@ resource "aws_autoscaling_policy" "scale_in_policy" {
   autoscaling_group_name = aws_autoscaling_group.my_asg.name
 }
 
+#Create AWS Backup Vault
+resource "aws_backup_vault" "my_backup_vault" {
+  name        = "My_Backup_Vault"
+  #kms_key_arn = aws_kms_key.example.arn
+}
+
 # Create an AWS Backup
 resource "aws_backup_plan" "my_backup_plan" {
   name = "My_Backup_Plan"
   rule {
     rule_name         = "My_Backup_Rule"
-    target_vault_name = "My_Backup_Vault"
+    target_vault_name = aws_backup_vault.my_backup_vault.name
     schedule          = "cron(0 10 * * ? *)"
-    #schedule  {
-    #  frequency  = "daily"
-    #  start_time = "10:00"
-    #}
+
     lifecycle {
       cold_storage_after = "90"
       delete_after       = "365"
@@ -263,7 +265,7 @@ resource "aws_backup_plan" "my_backup_plan" {
 
 # Create a Lambda function to stop and start the EC2 instances
 resource "aws_lambda_function" "my_lambda_function" {
-  filename = "lambda_function.py"
+  filename = "lambda_function.zip"
   function_name = "my_lambda"
   role     = aws_iam_role.lambda_role.arn
   handler  = "lambda_function.lambda_handler"
@@ -346,7 +348,8 @@ resource "aws_iam_role_policy_attachment" "ad_policy_attachment" {
 
 # Create an IAM instance profile for the EC2 instances
 resource "aws_iam_instance_profile" "my_instance_profile" {
-  name = "My-Instance-Profile"
+  #name = "My-Instance-Profile"
+  name = "my_instance_profile"
   #role = aws_iam_role.my_role.name
   role = aws_iam_role.lambda_role.name
   #role = aws_iam_role.my_iam_role.name
@@ -356,7 +359,7 @@ resource "aws_iam_instance_profile" "my_instance_profile" {
 
 # Create an EC2 instance with the instance profile
 resource "aws_instance" "my_instance" {
-  ami           = "ami-0c55b159cbfafe1f0"
+  ami           = "ami-00c39f71452c08778"
   instance_type = "t2.micro"
   #subnet_id     = aws_subnet.my_subnet.id
   subnet_id     = aws_subnet.app_subnet.id
@@ -429,9 +432,28 @@ resource "aws_iam_instance_profile" "my_instance_profile1" {
   role = aws_iam_role.session_manager_role.name
 }
 
+#Create an ssm document in JSON format for the Session Manager
+resource "aws_ssm_document" "my_test_ssm_doc" {
+  name            = "AWS_StartSSHSession"
+  document_type   = "Command"
+  document_format = "YAML"
+  content = <<DOC
+schemaVersion: '1.2'
+description: Enable session manager for the Linux instance.
+parameters: {}
+runtimeConfig:
+  'aws:runShellScript':
+    properties:
+      - id: '0.aws:runShellScript'
+        runCommand:
+          - ifconfig
+DOC
+}
+
 # Enable Session Manager for the EC2 instance
 resource "aws_ssm_association" "session_manager_association" {
-  name = "AWS-StartSSHSession"
+  #name = "AWS_StartSSHSession" 
+  name = aws_ssm_document.my_test_ssm_doc.name
   targets {
     key    = "InstanceIds"
     values = [aws_instance.my_instance.id]
