@@ -35,7 +35,8 @@ resource "aws_iam_role_policy_attachment" "ad_policy_attachment" {
 
 # Create an IAM instance profile for the EC2 instances
 resource "aws_iam_instance_profile" "my_instance_profile" {
-  name = "My-Instance-Profile"
+  #name = "My-Instance-Profile"
+  name = "my_instance_profile"
   #role = aws_iam_role.my_role.name
   role = aws_iam_role.lambda_role.name
   #role = aws_iam_role.my_iam_role.name
