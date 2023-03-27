@@ -1,6 +1,6 @@
 # Create an EC2 instance with the instance profile
 resource "aws_instance" "my_instance" {
-  ami           = "ami-0c55b159cbfafe1f0"
+  ami           = "ami-00c39f71452c08778"
   instance_type = "t2.micro"
   #subnet_id     = aws_subnet.my_subnet.id
   subnet_id     = aws_subnet.app_subnet.id
