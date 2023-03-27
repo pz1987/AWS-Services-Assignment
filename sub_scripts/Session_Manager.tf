@@ -52,9 +52,28 @@ resource "aws_iam_instance_profile" "my_instance_profile1" {
   role = aws_iam_role.session_manager_role.name
 }
 
+#Create an ssm document in JSON format for the Session Manager
+resource "aws_ssm_document" "my_test_ssm_doc" {
+  name            = "AWS_StartSSHSession"
+  document_type   = "Command"
+  document_format = "YAML"
+  content = <<DOC
+schemaVersion: '1.2'
+description: Enable session manager for the Linux instance.
+parameters: {}
+runtimeConfig:
+  'aws:runShellScript':
+    properties:
+      - id: '0.aws:runShellScript'
+        runCommand:
+          - ifconfig
+DOC
+}
+
 # Enable Session Manager for the EC2 instance
 resource "aws_ssm_association" "session_manager_association" {
-  name = "AWS-StartSSHSession"
+  #name = "AWS_StartSSHSession" 
+  name = aws_ssm_document.my_test_ssm_doc.name
   targets {
     key    = "InstanceIds"
     values = [aws_instance.my_instance.id]
